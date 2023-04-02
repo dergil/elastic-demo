@@ -1,0 +1,59 @@
+# alternative to Postman
+# for quick testing with booted containers
+
+GET http://localhost:8080/calculate?price=99022&salesTax=19
+Accept: application/json
+
+###
+POST http://localhost:8080/car
+Content-Type: application/json
+
+{
+  "name": "chevrolet chevelle malibu",
+  "price": 100000,
+  "milesPerGallon": 18,
+  "cylinders": 8,
+  "displacement": 307,
+  "horsepower": 130,
+  "weightInPounds": 3504,
+  "acceleration": 12,
+  "year": "1970-01-01",
+  "origin": "USA"
+}
+###
+GET http://localhost:8080/car/tax/1?tax=0.19
+Accept: application/json
+
+###
+GET http://localhost:9200/main-2023.03.30/_search?q=logmessage:chevrolet&prettyh
+Accept: application/json
+
+###
+GET http://localhost:9200/_cat/indices?h=index
+Accept: application/json
+
+
+###
+POST http://localhost:9200/your_index_name/_doc/
+Content-Type: application/json
+
+{
+  "field5": "value5"
+}
+###
+GET http://localhost:9200/.ds-logs-generic-default-2023.03.07-000001/_search?q=docker.container.labels.com_docker_compose_service:calculator
+Content-Type: application/json
+
+###
+GET http://localhost:9200/*car*/_search?size=10000&from=0
+Content-Type: application/json
+
+###
+# curl -X GET "http://localhost:9200/_cat/indices?v"
+GET http://localhost:9200/_cat/indices?v
+
+
+
+
+
+

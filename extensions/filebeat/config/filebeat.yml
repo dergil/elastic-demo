@@ -1,0 +1,39 @@
+filebeat:
+  name: filebeat
+#  automatically discovers and monitors logs from new containers/sources
+  autodiscover:
+    providers:
+#     sets template for which log files to monitor, how to parse them and what metadata to add
+      - type: docker
+        hints.enabled: true
+        labels.dedot: true
+        templates:
+          - condition:
+              not.or:
+#               does not monitor elastic stack itself
+                - equals.docker.container.image: logstash
+                - equals.docker.container.image: kibana
+                - equals.docker.container.image: filebeat
+                - equals.docker.container.image: elasticsearch
+            config:
+              - type: container
+                paths:
+                  - "/var/lib/docker/containers/${data.docker.container.id}/*.log"
+#                handles multiline log events
+                multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+                multiline.negate: true
+                multiline.match: after
+#                adds container name for index naming in logstash pipeline
+                processors:
+                  - add_fields:
+                      target: ''
+                      fields:
+                        container_name: '${data.container.name}'
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: false

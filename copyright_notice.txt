@@ -1,0 +1,2 @@
+This project includes code adapted from https://github.com/deviantony/docker-elk,
+licensed under the MIT license in 2015 by Anthony Lapenna
