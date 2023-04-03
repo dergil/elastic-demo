@@ -1,14 +1,19 @@
 package com.github.dergil.elasticdemo.car;
 
+import com.github.dergil.elasticdemo.car.domain.dto.calculate.CalculateView;
+import com.github.dergil.elasticdemo.car.domain.dto.car.CarCalculateView;
+import com.github.dergil.elasticdemo.car.domain.dto.car.CarView;
 import com.github.dergil.elasticdemo.car.domain.dto.car.EditCarRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.AfterClass;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 import org.springframework.web.client.RestTemplate;
-import org.testcontainers.containers.ContainerState;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -16,27 +21,27 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.File;
-import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Slf4j
-// commented, so that mvn does not try to execute, so that the test env does not get built
 @Testcontainers
 public class TestcontainersPlatformTest {
-//    not working, see thesis
     boolean init = false;
     String elasticSearchFinished = "GREEN";
     String filebeatFinished = "established";
     String logstashFinished = "Pipelines running";
 
+    public  RestTemplate restTemplate = new RestTemplate();
+
     @Container
-    public static DockerComposeContainer<?> environment = new DockerComposeContainer<>(new File("../docker-compose.yml"))
+    public  DockerComposeContainer<?> environment = new DockerComposeContainer<>(new File("../docker-compose.yml"))
             .withExposedService("elasticsearch", 9200)
             .withExposedService("logstash", 5044)
             .withExposedService("kibana", 5601)
@@ -45,7 +50,7 @@ public class TestcontainersPlatformTest {
             .withExposedService("gateway", 8080);
 
     @BeforeEach
-    void setup() throws InterruptedException {
+    void setup() {
         if (!init) {
             environment.withLogConsumer("elasticsearch", new Slf4jLogConsumer(TestcontainersPlatformTest.log));
             environment.withLogConsumer("car", new Slf4jLogConsumer(TestcontainersPlatformTest.log));
@@ -56,19 +61,137 @@ public class TestcontainersPlatformTest {
             environment.waitingFor("filebeat", Wait.forLogMessage(".*" + filebeatFinished + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
             System.err.println("Started ELK stack");
             environment.waitingFor("car", Wait.forLogMessage(".*" + "Started CarApplication" + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
+            System.err.println("Started car service");
             environment.start();
             init = true;
         }
     }
 
-//    @Disabled
+    @AfterEach
+    void tearDown() {
+        removeAllIndices();
+        System.err.println("All indices removed");
+    }
+
     @Test
-    void testInteraction() throws InterruptedException {
-        log.info("hro do weisst");
+    void testCarToElasticsearch() throws InterruptedException {
+        String exampleCarName = "car_test_two";
+        createExampleCar("8081", exampleCarName);
+        String indexName = findMatchingIndexName("car");
+        assertIndexContainsString(exampleCarName, indexName);
+    }
 
-        RestTemplate restTemplate = new RestTemplate();
+    @Test
+    void testCalculatorToElasticsearch() throws InterruptedException {
+        double salesTax = 0.1955;
+        createExampleCalculateRequest("8084", 99999.0, salesTax);
+        String indexName = findMatchingIndexName("calculator");
+        assertIndexContainsString(Double.toString(salesTax), indexName);
+    }
 
-        String carName = "example name";
+    @Test
+    void testGatewayToCarToElasticsearch() throws InterruptedException {
+        String exampleCarName = "car23";
+        String gatewayMatchString = "POST http://localhost:8080/car";
+        createExampleCar("8080", exampleCarName);
+        String indexNameGateway = findMatchingIndexName("gateway");
+        String indexNameCar = findMatchingIndexName("car");
+        assertIndexContainsString(gatewayMatchString, indexNameGateway);
+        assertIndexContainsString(exampleCarName, indexNameCar);
+    }
+
+    @Test
+    void testGatewayToCarToCalculatorToElasticsearch() throws InterruptedException {
+        String carName = "villCar";
+        CarView carView = createExampleCar("8080", carName);
+        double salesTax = 0.1355;
+        CarCalculateView carCalculateView = getTaxForCar("8080", carView.getId(), salesTax);
+        String carIndex = findMatchingIndexName("car");
+        String gatewayIndex = findMatchingIndexName("gateway");
+        String calculatorIndex = findMatchingIndexName("calculator");
+        assertIndexContainsString(Double.toString(salesTax), calculatorIndex);
+        assertIndexContainsString(Double.toString(salesTax), carIndex);
+        assertIndexContainsString(carName, carIndex);
+        assertIndexContainsString("/" + Long.toString(carCalculateView.getCarView().getId()), gatewayIndex);
+    }
+
+    private  String findMatchingIndexName(String indexName) {
+        return getAllIndices().stream()
+                .filter(index -> index.contains(indexName) && index.contains(getCurrentDateInCustomFormat()))
+                .findFirst().get();
+    }
+
+    void assertIndexContainsString(String string, String index) throws InterruptedException {
+//        wait for filebeat, logstash and elasticsearch to process request log
+        int maxIterations = 5;
+        int currentIteration = 0;
+
+        ResponseEntity<String> response = null;
+
+        while (currentIteration < maxIterations) {
+            Thread.sleep(5000);
+            currentIteration++;
+            String fooResourceUrl
+                    = "http://localhost:9200/" + index + "/_search?size=10000&from=0";
+            response = restTemplate.getForEntity(fooResourceUrl, String.class);
+            log.debug(response.getBody());
+            System.err.println("###########");
+            if (Objects.requireNonNull(response.getBody()).contains(string)) {
+                break;
+            }
+        }
+        log.info("Number of iterations for search: " + currentIteration);
+        log.debug(response.getBody());
+        Assertions.assertEquals(response.getStatusCode(), HttpStatus.OK);
+        Assertions.assertTrue(Objects.requireNonNull(response.getBody()).contains(string));
+    }
+
+    private void removeAllIndices() {
+        for (String index : getAllIndices()) {
+            removeAllIndicesWithSubstring(index);
+        }
+    }
+
+    private  void removeAllIndicesWithSubstring(String index) {
+        String elasticUrl = "http://localhost:9200/" + index;
+        HttpEntity httpEntity = new HttpEntity(null);
+        ResponseEntity<String> responseMS  = restTemplate.exchange(elasticUrl, HttpMethod.DELETE, httpEntity, String.class);
+        Assertions.assertEquals(responseMS.getStatusCode(), HttpStatus.OK);
+    }
+
+    public  String getCurrentDateInCustomFormat() {
+        LocalDate currentDate = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+        return currentDate.format(formatter);
+    }
+
+    private  List<String> getAllIndices() {
+        String baseUrl = "http://localhost:9200";
+        String endpoint = "/_cat/indices";
+
+        URI uri = UriComponentsBuilder.fromHttpUrl(baseUrl).path(endpoint).build().toUri();
+
+        WebClient webClient = WebClient.create();
+
+        String responseBody = webClient.get()
+                .uri(uri)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+        log.trace(responseBody);
+        List<String> indexNames = new ArrayList<>();
+        if (responseBody == null){
+            return new ArrayList<>();
+        }
+        String[] lines = responseBody.split("\n");
+        for (String line : lines) {
+            indexNames.add(line.split(" ")[2]);
+        }
+        return indexNames;
+    }
+
+    private  CarView createExampleCar(String port, String carName) {
         EditCarRequest newCar = new EditCarRequest();
         newCar.setName(carName);
         newCar.setPrice(1000.0);
@@ -81,78 +204,35 @@ public class TestcontainersPlatformTest {
         newCar.setYear(new Date());
         newCar.setOrigin("example origin");
 
-        String apiEndpointUrl = "http://localhost:8081/car";
+        String apiEndpointUrl = "http://localhost:" + port + "/car";
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<EditCarRequest> requestEntity = new HttpEntity<>(newCar, headers);
-        String createdCar = restTemplate.postForObject(apiEndpointUrl, requestEntity, String.class);
-
-        // Wait for the logs to be ingested into Elasticsearch
-        Thread.sleep(10000);
-
-        org.testcontainers.containers.ContainerState containerState = (ContainerState) environment.getContainerByServiceName("car_1").get();
-        System.err.println(containerState.getContainerInfo().getName());
-        String containerName = containerState.getContainerInfo().getName().replace("/", "");
-        String indexName = containerName + "-" + getCurrentDateInCustomFormat();
-
-        getAllIndices();
-
-        String fooResourceUrl
-                = "http://localhost:9200/" + indexName + "/_search?size=10000&from=0";
-        ResponseEntity<String> response2
-                = restTemplate.getForEntity(fooResourceUrl, String.class);
-        System.err.println(response2.getBody());
-        Assertions.assertEquals(response2.getStatusCode(), HttpStatus.OK);
-        Assertions.assertTrue(Objects.requireNonNull(response2.getBody()).contains(carName));
+        return restTemplate.postForObject(apiEndpointUrl, requestEntity, CarView.class);
     }
 
-    public String getCurrentDateInCustomFormat() {
-        LocalDate currentDate = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy.MM.dd");
-        return currentDate.format(formatter);
-    }
-
-    private String extractIndexName(String jsonInput, String partialIndexName) {
-        String regex = "\"index\":\"(.*?)\"";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(jsonInput);
-
-        while (matcher.find()) {
-             String indexValue = matcher.group(1);
-             System.err.println(indexValue);
-            if (indexValue.contains(partialIndexName)) {
-                System.out.println(indexValue);
-                System.err.println("index found: " + indexValue);
-                return indexValue;
-            }
-        }
-        System.err.println("index not found");
-        return null;
-    }
-
-    private String getAllIndices() {
-        RestTemplate restTemplate = new RestTemplate();
-
-        String elasticsearchUrl = "http://localhost:9200/_cat/indices?h=index";
+    private void createExampleCalculateRequest(String port, double price, double salesTax) {
+        String apiEndpointUrl = "http://localhost:" + port + "/calculate?price=" +
+                Double.toString(price) + "&salesTax=" + Double.toString(salesTax);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Type", "application/json");
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
-        ResponseEntity<String> response = restTemplate.exchange(
-                elasticsearchUrl,
-                HttpMethod.GET,
-                entity,
-                String.class
-        );
-        System.err.println("All indices: " + response.getBody());
-
-        return response.getBody();
+        HttpEntity requestEntity = new HttpEntity<>(null, headers);
+        restTemplate.exchange(apiEndpointUrl, HttpMethod.GET, requestEntity, CalculateView.class).getBody();
     }
 
+    private  CarCalculateView getTaxForCar(String port, long id, double tax) {
+        String apiEndpointUrl = "http://localhost:" + port + "/car/tax/" + id + "?tax=" + tax;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        HttpEntity requestEntity = new HttpEntity<>(null, headers);
+        return restTemplate.exchange(apiEndpointUrl, HttpMethod.GET, requestEntity, CarCalculateView.class).getBody();
+    }
 }
 
 

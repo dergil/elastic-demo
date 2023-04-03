@@ -7,6 +7,10 @@ In root directory
 ```
 Used java JDK version: corretto-11.0.14.1
 
+### Build and run Docker containers
+```bash
+docker-compose up
+```
 
 ### Kibana import:
 Start the Kibana container and import the configurations and visualisations via curl:

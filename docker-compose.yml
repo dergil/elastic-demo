@@ -65,8 +65,6 @@ services:
   calculator:
     image: calculator:1.0-SNAPSHOT
     build: ./calculator
-#    labels:
-#      - "com.docker.compose.service=spring"
     networks:
       - elk
     ports:
@@ -105,9 +103,6 @@ services:
         source: /var/run/docker.sock
         target: /var/run/docker.sock
         read_only: true
-#    environment:
-#      FILEBEAT_INTERNAL_PASSWORD: ${FILEBEAT_INTERNAL_PASSWORD:-}
-#      BEATS_SYSTEM_PASSWORD: ${BEATS_SYSTEM_PASSWORD:-}
     networks:
       - elk
     depends_on:

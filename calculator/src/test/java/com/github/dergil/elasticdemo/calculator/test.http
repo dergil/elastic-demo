@@ -29,28 +29,9 @@ GET http://localhost:9200/main-2023.03.30/_search?q=logmessage:chevrolet&prettyh
 Accept: application/json
 
 ###
-GET http://localhost:9200/_cat/indices?h=index
-Accept: application/json
-
-
-###
-POST http://localhost:9200/your_index_name/_doc/
-Content-Type: application/json
-
-{
-  "field5": "value5"
-}
-###
-GET http://localhost:9200/.ds-logs-generic-default-2023.03.07-000001/_search?q=docker.container.labels.com_docker_compose_service:calculator
-Content-Type: application/json
-
-###
 GET http://localhost:9200/*car*/_search?size=10000&from=0
 Content-Type: application/json
 
-###
-# curl -X GET "http://localhost:9200/_cat/indices?v"
-GET http://localhost:9200/_cat/indices?v
 
 
 
