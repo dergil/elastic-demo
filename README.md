@@ -1,6 +1,6 @@
-##Exemplary integration of the Elastic stack into a microservice architecture
+## Exemplary integration of the Elastic stack into a microservice architecture
 
-###Kibana import:
+### Kibana import:
 Start the Kibana container and import the configurations and visualisations via curl:
 ```bash
 curl -X POST \
