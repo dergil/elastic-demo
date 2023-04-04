@@ -22,4 +22,5 @@ curl -X POST \
    -H 'kbn-xsrf: true' \
    --form file=@<path-to-file>/export.ndjson
 ```
+Visit Kibana at localhost:5601
 The dashboard 'Overview' with the index patterns and visualizations should appear under Analytics -> Dashboard
