@@ -5,7 +5,6 @@ In root directory
 ```bash
 ./mvnw clean install -DskipTests
 ```
-Used java JDK version: corretto-11.0.14.1
 
 ### Build and run Docker containers
 If possible: close currently running Docker containers, since their output would get ingested, too
@@ -24,13 +23,13 @@ Wait for about a minute before sending requests, or until the string "green" app
 With Intellij IDEA the .http file in the same directory can be used
 
 ### Kibana import:
-Import the Kibana configurations and visualisations via curl:
+Import the Kibana configurations and visualisations via curl: /kibana/import/import_via_curl.txt
 
 ```bash
 curl -X POST \
   http://localhost:5601/api/saved_objects/_import?overwrite=true \
    -H 'kbn-xsrf: true' \
-   --form file=@<path-to-file>/export.ndjson
+   --form file=@./export.ndjson
 ```
 Visit Kibana at localhost:5601
 
