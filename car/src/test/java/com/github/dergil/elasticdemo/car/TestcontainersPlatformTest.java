@@ -43,7 +43,6 @@ public class TestcontainersPlatformTest {
     public  DockerComposeContainer<?> environment = new DockerComposeContainer<>(new File("../docker-compose.yml"))
             .withExposedService("elasticsearch", 9200)
             .withExposedService("logstash", 5044)
-            .withExposedService("kibana", 5601)
             .withExposedService("car", 8081)
             .withExposedService("calculator", 8084)
             .withExposedService("gateway", 8080);
@@ -58,9 +57,9 @@ public class TestcontainersPlatformTest {
             environment.waitingFor("elasticsearch", Wait.forLogMessage(".*" + elasticSearchFinished + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
             environment.waitingFor("logstash", Wait.forLogMessage(".*" + logstashFinished + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
             environment.waitingFor("filebeat", Wait.forLogMessage(".*" + filebeatFinished + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
-            System.err.println("Started ELK stack");
+            log.debug("Started ELK stack");
             environment.waitingFor("car", Wait.forLogMessage(".*" + "Started CarApplication" + ".*", 1).withStartupTimeout(Duration.ofSeconds(160)));
-            System.err.println("Started car service");
+            log.debug("Started car service");
             environment.start();
             init = true;
         }
@@ -69,7 +68,7 @@ public class TestcontainersPlatformTest {
     @AfterEach
     void tearDown() {
         removeAllIndices();
-        System.err.println("All indices removed");
+        log.debug("All indices removed");
     }
 
     @Test
@@ -134,7 +133,7 @@ public class TestcontainersPlatformTest {
                     = "http://localhost:9200/" + index + "/_search?size=10000&from=0";
             response = restTemplate.getForEntity(fooResourceUrl, String.class);
             log.debug(response.getBody());
-            System.err.println("###########");
+            log.debug("###########");
             if (Objects.requireNonNull(response.getBody()).contains(string)) {
                 break;
             }
