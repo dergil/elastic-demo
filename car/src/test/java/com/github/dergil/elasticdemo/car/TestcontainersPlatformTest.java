@@ -5,7 +5,6 @@ import com.github.dergil.elasticdemo.car.domain.dto.car.CarCalculateView;
 import com.github.dergil.elasticdemo.car.domain.dto.car.CarView;
 import com.github.dergil.elasticdemo.car.domain.dto.car.EditCarRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.AfterClass;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,0 +1,66 @@
+# alternative to Postman
+# for quick testing with booted containers
+### calculation via gateway
+GET http://localhost:8080/calculate?price=99022&salesTax=19
+Accept: application/json
+
+### calculation directly via calculator
+GET http://localhost:8084/calculate?price=99023&salesTax=19
+Accept: application/json
+
+### add car via gateway
+POST http://localhost:8080/car
+Content-Type: application/json
+
+{
+  "name": "chevrolet chevelle malibu",
+  "price": 100000,
+  "milesPerGallon": 18,
+  "cylinders": 8,
+  "displacement": 307,
+  "horsepower": 130,
+  "weightInPounds": 3504,
+  "acceleration": 12,
+  "year": "1970-01-01",
+  "origin": "USA"
+}
+
+### add car directly at car service
+POST http://localhost:8081/car
+Content-Type: application/json
+
+{
+  "name": "Audi A1",
+  "price": 100000,
+  "milesPerGallon": 18,
+  "cylinders": 8,
+  "displacement": 307,
+  "horsepower": 130,
+  "weightInPounds": 3504,
+  "acceleration": 12,
+  "year": "1970-01-01",
+  "origin": "USA"
+}
+### car with calculated tax via gateway (add car beforehand)
+GET http://localhost:8080/car/tax/1?tax=0.19
+Accept: application/json
+
+### list field logmessage of all entries, that contain the string chevrolet in the field logmessage
+GET http://localhost:9200/*car*/_search?_source=logmessage&q=logmessage:chevrolet
+Accept: application/json
+
+### list 10000 entries from all indices that contain the string car in the index name
+GET http://localhost:9200/*car*/_search?size=10000&from=0
+Content-Type: application/json
+
+### list all indices
+GET http://localhost:9200/_cat/indices
+Content-Type: application/json
+
+###
+
+
+
+
+
+

@@ -1,0 +1,11 @@
+# import saved objects into Kibana container
+# curl -X POST http://localhost:5601/api/saved_objects/_import?overwrite=true -H 'kbn-xsrf: true' --form file=@./export.ndjson
+POST http://localhost:5601/api/saved_objects/_import?overwrite=true
+kbn-xsrf: true
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="export.ndjson"
+
+< export.ndjson
+--WebAppBoundary--
